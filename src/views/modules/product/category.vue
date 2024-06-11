@@ -15,7 +15,7 @@
             v-if="data.catLevel <= 2"
             type="text"
             size="mini"
-            @click="() => append(data)"
+            @click="() => append(node, data)"
           >
             添加
           </el-button>
@@ -52,13 +52,13 @@ export default {
         url: this.$http.adornUrl("/product/category/listTree"),
         method: "get"
       }).then(({ data }) => {
-        console.log("成功获取的类别数据：", data.data)
+        // console.log("成功获取的类别数据：", data.data)
         this.data = data.data
       })
     },
-    append(data) {
-      // this.open(data)
-      console.log("添加", data)
+    append(node, data) {
+      this.add(node, data)
+      console.log("添加", node, data)
     },
     remove(node, data) {
       this.open(node, data)
@@ -96,6 +96,54 @@ export default {
           this.$message({
             type: "info",
             message: "已取消删除"
+          })
+        })
+    },
+    add(node, data) {
+      let catLevel = 0
+      if (data.catLevel == 1) {
+        catLevel = 2
+      } else if (data.catLevel == 2) {
+        catLevel = 3
+      }
+      this.$prompt("请输入分类名称", "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消"
+      })
+        .then(({ value }) => {
+          let categoryJson = {
+            name: value,
+            parentCid: data.catId,
+            catLevel: catLevel,
+            productCount: 0,
+            productUnit: null,
+            showStatus: 1,
+            sort: 0
+          }
+          this.$http({
+            url: this.$http.adornUrl("/product/category/save"),
+            method: "post",
+            data: this.$http.adornData(categoryJson, false)
+          }).then(({ data }) => {
+            if (data && data.code === 0) {
+              this.$message({
+                message: "添加成功",
+                type: "success"
+              })
+
+              //刷新页面
+              this.getCategory()
+              //保持展示的页面还是当前删除的父节点
+              this.expandKeys = [node.data.catId]
+            } else {
+              this.$message.error(data.msg)
+            }
+          })
+        })
+        .catch(() => {
+          this.$message({
+            type: "info",
+            message: "取消输入"
           })
         })
     }
