@@ -20,6 +20,14 @@
             添加
           </el-button>
           <el-button
+            v-if="data.catLevel <= 2"
+            type="text"
+            size="mini"
+            @click="() => edit(data)"
+          >
+            更新
+          </el-button>
+          <el-button
             v-if="data.children.length == 0"
             type="text"
             size="mini"
@@ -53,7 +61,7 @@
       </el-form>
       <span slot="footer" class="dialog-footer">
         <el-button @click="dialogVisible = false">取 消</el-button>
-        <el-button type="primary" @click="addDialog">确 定</el-button>
+        <el-button type="primary" @click="submitForm">确 定</el-button>
       </span>
     </el-dialog>
   </div>
@@ -95,10 +103,19 @@ export default {
         this.data = data.data
       })
     },
-
+    submitForm() {
+      if (this.dialogType === "add") {
+        this.addDialog()
+      } else {
+        this.editDialog()
+      }
+    },
     //添加类别，显示弹窗
     append(data) {
-      this.dialogVisible = true
+      this.dialogType = "add"
+      this.categoryForm.name = ""
+      this.categoryForm.icon = ""
+      this.categoryForm.productUnit = ""
       console.log("添加", data)
       // console.log("添加", data);
       this.categoryForm.parentCid = data.catId // 添加的类别对应的父菜单
@@ -106,8 +123,46 @@ export default {
       this.categoryForm.showStatus = 1 // 菜单的显示状态  1 显示  0 被删除
       this.categoryForm.sort = 0 // 排序 默认给 0
       this.categoryForm.productCount = 0
+      this.dialogVisible = true
+    },
+    edit(data) {
+      this.dialogType = "edit"
+      this.$http({
+        url: this.$http.adornUrl(`/product/category/info/${data.catId}`),
+        method: "get"
+      }).then(({ data }) => {
+        this.categoryForm.name = data.category.name
+        this.categoryForm.parentCid = data.category.parentCid // 添加的类别对应的父菜单
+        this.categoryForm.catLevel = data.category.catLevel // 设置添加类别的层级
+        this.categoryForm.showStatus = data.category.showStatus // 菜单的显示状态  1 显示  0 被删除
+        this.categoryForm.sort = data.category.sort // 排序 默认给 0
+        this.categoryForm.productCount = data.category.productCount
+        this.categoryForm.productUnit = data.category.productUnit
+        this.categoryForm.icon = data.category.icon
+        this.categoryForm.catId = data.category.catId
+        this.dialogVisible = true
+      })
     },
 
+    editDialog() {
+      this.$http({
+        url: this.$http.adornUrl("/product/category/update"),
+        method: "post",
+        data: this.$http.adornData(this.categoryForm, false)
+      }).then(({ data }) => {
+        if (data && data.code === 0) {
+          this.$message({
+            message: "数据更新成功",
+            type: "success"
+          })
+          this.dialogVisible = false
+          this.getCategory()
+          this.expandKeys = [this.categoryForm.parentCid]
+        } else {
+          this.$message.error(data.msg)
+        }
+      })
+    },
     //删除类别
     remove(node, data) {
       this.$confirm(`是否确认删除【${data.name}】记录?`, "提示", {
@@ -160,9 +215,6 @@ export default {
             type: "success"
           })
           this.dialogVisible = false // 关闭弹出窗口
-          this.categoryForm.name = ""
-          this.categoryForm.icon = ""
-          this.categoryForm.productUnit = ""
           // 重新加载所有的菜单数据
           this.getCategory()
           // 设置默认展开的父节点信息
